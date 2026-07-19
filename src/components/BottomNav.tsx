@@ -72,14 +72,14 @@ export default function BottomNav() {
         transform: 'translateX(-50%)',
         width: 'calc(100% - 32px)',
         maxWidth: '400px',
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        backgroundColor: 'color-mix(in srgb, var(--color-bg-primary) 85%, transparent)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        border: '1px solid var(--color-border)',
         borderRadius: '20px',
         paddingBottom: '0',
         zIndex: 50,
-        boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 10px 30px -10px rgba(47, 44, 40, 0.06)',
       }}
     >
       <div
@@ -110,7 +110,7 @@ export default function BottomNav() {
               minWidth: '56px',
               padding: '6px 4px',
               borderRadius: '12px',
-              backgroundColor: isActive ? 'rgba(255, 255, 255, 0.03)' : 'transparent',
+              backgroundColor: isActive ? 'var(--color-border-light)' : 'transparent',
               transform: isActive ? 'scale(1.05)' : 'none',
               filter: isActive ? `drop-shadow(0 0 4px ${tab.color}33)` : 'none',
             })}

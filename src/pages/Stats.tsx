@@ -121,12 +121,13 @@ export default function Stats() {
             <div style={{ fontSize: '14px', fontWeight: 650, marginBottom: '14px', color: 'var(--color-text-primary)' }}>{habit.name}</div>
             <ResponsiveContainer width="100%" height={120}>
               <BarChart data={habit.data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--color-text-secondary)' }} interval={period > 7 ? Math.floor(period / 7) : 0} />
                 <YAxis hide domain={[0, 'auto']} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', fontSize: '11px' }}
+                  contentStyle={{ backgroundColor: 'var(--color-bg-elevated)', backdropFilter: 'blur(8px)', border: '1px solid var(--color-border)', borderRadius: '10px', fontSize: '11px' }}
                   labelStyle={{ color: 'var(--color-text-secondary)' }}
+                  itemStyle={{ color: 'var(--color-text-primary)' }}
                 />
                 <Bar dataKey="value" fill="var(--color-habit)" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -147,8 +148,8 @@ export default function Stats() {
         <button 
           onClick={() => setShowNetCost(!showNetCost)} 
           style={{
-            background: 'rgba(255, 255, 255, 0.03)', 
-            border: '1px solid rgba(255, 255, 255, 0.05)', 
+            background: 'var(--color-bg-secondary)', 
+            border: '1px solid var(--color-border)', 
             borderRadius: '8px',
             padding: '4px 10px', 
             fontSize: '11px', 
@@ -158,11 +159,11 @@ export default function Stats() {
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+            e.currentTarget.style.background = 'var(--color-border-light)';
             e.currentTarget.style.color = 'var(--color-text-primary)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+            e.currentTarget.style.background = 'var(--color-bg-secondary)';
             e.currentTarget.style.color = 'var(--color-text-secondary)';
           }}
         >
@@ -177,11 +178,12 @@ export default function Stats() {
         <div className="glass-card glass-card-finance" style={{ padding: '18px 20px' }}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={financeData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--color-text-secondary)' }} />
               <YAxis tick={{ fontSize: 9, fill: 'var(--color-text-secondary)' }} width={38} />
               <Tooltip
-                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', fontSize: '11px' }}
+                contentStyle={{ backgroundColor: 'var(--color-bg-elevated)', backdropFilter: 'blur(8px)', border: '1px solid var(--color-border)', borderRadius: '10px', fontSize: '11px' }}
+                itemStyle={{ color: 'var(--color-text-primary)' }}
                 formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, '']}
               />
               <Bar dataKey="income" fill="var(--color-habit)" radius={[4, 4, 0, 0]} name="Income" />
