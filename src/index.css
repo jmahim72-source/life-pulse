@@ -1,0 +1,365 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/* ─── Design Tokens & Theme ──────────────────────────────────────── */
+
+@theme {
+  /* Base palette — deep cosmos dark */
+  --color-bg-primary: #030712;
+  --color-bg-secondary: rgba(17, 24, 39, 0.7);
+  --color-bg-card: rgba(30, 41, 59, 0.45);
+  --color-bg-elevated: rgba(51, 65, 85, 0.8);
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-light: rgba(255, 255, 255, 0.04);
+
+  /* Domain accent colors */
+  --color-habit: #10b981;
+  --color-habit-soft: rgba(16, 185, 129, 0.15);
+  --color-habit-glow: rgba(16, 185, 129, 0.35);
+  
+  --color-journal: #f59e0b;
+  --color-journal-soft: rgba(245, 158, 11, 0.15);
+  --color-journal-glow: rgba(245, 158, 11, 0.35);
+
+  --color-finance: #06b6d4;
+  --color-finance-soft: rgba(6, 182, 212, 0.15);
+  --color-finance-glow: rgba(6, 182, 212, 0.35);
+
+  --color-people: #f43f5e;
+  --color-people-soft: rgba(244, 63, 94, 0.15);
+  --color-people-glow: rgba(244, 63, 94, 0.35);
+
+  --color-stats: #8b5cf6;
+  --color-stats-soft: rgba(139, 92, 246, 0.15);
+  --color-stats-glow: rgba(139, 92, 246, 0.35);
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* Spacing */
+  --spacing-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ─── Base Styles ───────────────────────────────────────────────── */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  position: relative;
+  /* Ambient cosmic background glow */
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.02) 0%, transparent 60%);
+  background-attachment: fixed;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Reduced motion ────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Glassmorphism & UI System ─────────────────────────────────── */
+
+.glass-header {
+  background: rgba(3, 7, 18, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.glass-nav {
+  background: rgba(10, 15, 30, 0.7);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.glass-card {
+  background: rgba(22, 28, 45, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, border-color, box-shadow;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.4);
+}
+
+/* Accent Card Variants */
+.glass-card-habit {
+  border-left: 4px solid var(--color-habit);
+}
+.glass-card-habit:hover {
+  box-shadow: 0 10px 30px -10px var(--color-habit-soft);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.glass-card-journal {
+  border-left: 4px solid var(--color-journal);
+}
+.glass-card-journal:hover {
+  box-shadow: 0 10px 30px -10px var(--color-journal-soft);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.glass-card-finance {
+  border-left: 4px solid var(--color-finance);
+}
+.glass-card-finance:hover {
+  box-shadow: 0 10px 30px -10px var(--color-finance-soft);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.glass-card-people {
+  border-left: 4px solid var(--color-people);
+}
+.glass-card-people:hover {
+  box-shadow: 0 10px 30px -10px var(--color-people-soft);
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.glass-card-stats {
+  border-left: 4px solid var(--color-stats);
+}
+.glass-card-stats:hover {
+  box-shadow: 0 10px 30px -10px var(--color-stats-soft);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+/* ─── Premium Form Controls ─────────────────────────────────────── */
+
+.glass-input {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(15, 23, 42, 0.6);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: all 0.25s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.glass-input:focus {
+  border-color: var(--color-finance);
+  background-color: rgba(15, 23, 42, 0.85);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 0 15px var(--color-finance-soft);
+}
+
+/* Button UI */
+.btn-premium {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  border: none;
+  min-height: 46px;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-premium:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-premium-habit {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+.btn-premium-habit:hover {
+  box-shadow: 0 0 20px var(--color-habit-glow);
+}
+
+.btn-premium-journal {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+.btn-premium-journal:hover {
+  box-shadow: 0 0 20px var(--color-journal-glow);
+}
+
+.btn-premium-finance {
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+}
+.btn-premium-finance:hover {
+  box-shadow: 0 0 20px var(--color-finance-glow);
+}
+
+.btn-premium-people {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+}
+.btn-premium-people:hover {
+  box-shadow: 0 0 20px var(--color-people-glow);
+}
+
+.btn-premium-stats {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+.btn-premium-stats:hover {
+  box-shadow: 0 0 20px var(--color-stats-glow);
+}
+
+.btn-premium-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+}
+
+.btn-premium-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Page wrapper */
+.page {
+  flex: 1;
+  padding: 20px 16px;
+  padding-bottom: calc(90px + var(--spacing-safe-bottom));
+  max-width: 440px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ─── Animations ────────────────────────────────────────────────── */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px transparent); }
+  50% { transform: scale(1.02); filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.1)); }
+}
+
+@keyframes floatElement {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float {
+  animation: floatElement 3s ease-in-out infinite;
+}
+
+/* Staggered entrance for list cards */
+.stagger-item {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 40ms; }
+.stagger-item:nth-child(3) { animation-delay: 80ms; }
+.stagger-item:nth-child(4) { animation-delay: 120ms; }
+.stagger-item:nth-child(5) { animation-delay: 160ms; }
+.stagger-item:nth-child(6) { animation-delay: 200ms; }
+.stagger-item:nth-child(7) { animation-delay: 240ms; }
+.stagger-item:nth-child(8) { animation-delay: 280ms; }
+
+/* ─── Domain Specific Elements ──────────────────────────────────── */
+
+/* Emoji mood selected state */
+.mood-btn {
+  font-size: 28px;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 48px;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mood-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.mood-btn.selected {
+  border-color: var(--color-journal);
+  background: var(--color-journal-soft);
+  box-shadow: 0 0 15px var(--color-journal-glow);
+  transform: translateY(-2px) scale(1.1);
+}
