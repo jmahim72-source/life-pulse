@@ -197,6 +197,38 @@ export default function Settings() {
             No key configured. Scanning will use server endpoint if active.
           </div>
         )}
+
+        <div style={{
+          marginTop: '8px',
+          paddingTop: '12px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+        }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+            🔑 How to get a free Gemini API Key:
+          </div>
+          <ol style={{ 
+            margin: 0, 
+            paddingLeft: '16px', 
+            fontSize: '11px', 
+            color: 'var(--color-text-secondary)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '6px',
+            lineHeight: '1.4',
+            fontWeight: 500
+          }}>
+            <li>
+              Go to <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-finance)', fontWeight: 650, textDecoration: 'none' }}>Google AI Studio ↗</a>
+            </li>
+            <li>Sign in using your Google account.</li>
+            <li>Click the <strong>"Get API key"</strong> button in the left sidebar.</li>
+            <li>Click <strong>"Create API key"</strong>, then select or search a Google Cloud project.</li>
+            <li>Copy your key and paste it in the input field above.</li>
+          </ol>
+        </div>
       </div>
 
       {/* Data */}
