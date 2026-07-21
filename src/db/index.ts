@@ -17,8 +17,9 @@ import { openDB, type IDBPDatabase } from 'idb';
 import { getNowISO, getLocalDateString, getPrevDay } from '../lib/dates';
 import type {
   Habit, HabitLog, JournalEntry, Transaction,
-  Person, SplitShare, LedgerEntry
+  Person, SplitShare, LedgerEntry, MilestoneTier, MonthlyBudgetConfig
 } from '../types';
+import { MILESTONE_TIERS } from '../types';
 
 // ─── DB Config ─────────────────────────────────────────────────────
 
@@ -601,4 +602,63 @@ export async function getHabitStreak(habit: Habit): Promise<number> {
   
   return currentStreak;
 }
+
+export function getMilestoneTier(streak: number): MilestoneTier | null {
+  if (streak < 3) return null;
+  return MILESTONE_TIERS.find(t => streak >= t.minDays) || null;
+}
+
+export async function getOverallConsistencyScore(days: number = 7): Promise<number> {
+  const habits = await getActiveHabits();
+  if (habits.length === 0) return 0;
+  
+  let today = getLocalDateString();
+  let completedCount = 0;
+  let totalOpportunities = habits.length * days;
+  
+  for (let i = 0; i < days; i++) {
+    const dayLogs = await getHabitLogsForDate(today);
+    const logMap = new Map<string, number>();
+    for (const l of dayLogs) logMap.set(l.habitId, l.value);
+    
+    for (const h of habits) {
+      const val = logMap.get(h.id) || 0;
+      const isCompleted = h.type === 'boolean' ? val === 1 : (h.target ? val >= h.target : val > 0);
+      if (isCompleted) completedCount++;
+    }
+    today = getPrevDay(today);
+  }
+  
+  return Math.round((completedCount / totalOpportunities) * 100);
+}
+
+// ─── Monthly Budget Config ─────────────────────────────────────────
+
+export async function getMonthlyBudgetConfig(month: string): Promise<MonthlyBudgetConfig> {
+  const meta = await getSyncMeta(`budget_config_${month}`);
+  if (meta) {
+    try {
+      return JSON.parse(meta);
+    } catch {
+      // fallback
+    }
+  }
+  return {
+    month,
+    totalBudget: 15000,
+    categoryBudgets: {
+      Food: 5000,
+      Transport: 2000,
+      Bills: 3000,
+      Shopping: 2500,
+      Health: 1500,
+      Other: 1000,
+    },
+  };
+}
+
+export async function saveMonthlyBudgetConfig(config: MonthlyBudgetConfig): Promise<void> {
+  await setSyncMeta(`budget_config_${config.month}`, JSON.stringify(config));
+}
+
 

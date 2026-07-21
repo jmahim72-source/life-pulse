@@ -6,13 +6,13 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getLocalDateString, formatDateDisplay, formatMonthYear, getNextMonth, getPrevMonth } from '../lib/dates';
-import { createTransaction, getTransactionsForMonth, deleteTransaction, getAllPeople, createSplitShare } from '../db';
+import { createTransaction, getTransactionsForMonth, deleteTransaction, getAllPeople, createSplitShare, getMonthlyBudgetConfig, saveMonthlyBudgetConfig } from '../db';
 import { useUserId } from '../contexts/AuthContext';
 import { useAuth } from '../contexts/AuthContext';
 import { syncNow } from '../sync/engine';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_CATEGORIES } from '../types';
-import type { Transaction, Person } from '../types';
+import type { Transaction, Person, MonthlyBudgetConfig, AISpendingInsight } from '../types';
 
 interface ParsedReceipt {
   amount?: number;
@@ -42,20 +42,149 @@ export default function Finance() {
   const [splitPeople, setSplitPeople] = useState<Set<string>>(new Set());
 
   // Receipt parsing state
+  // Budget & AI state
+  const [budgetConfig, setBudgetConfig] = useState<MonthlyBudgetConfig | null>(null);
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [tempTotalBudget, setTempTotalBudget] = useState('');
+  const [tempCategoryBudgets, setTempCategoryBudgets] = useState<Record<string, string>>({});
+  
+  const [aiInsight, setAiInsight] = useState<AISpendingInsight | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
+  // Receipt parsing state
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState('');
   const [parsedReceipt, setParsedReceipt] = useState<ParsedReceipt | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allCategories = [...DEFAULT_CATEGORIES, ...customCategories.filter(c => !(DEFAULT_CATEGORIES as readonly string[]).includes(c))];
 
   const loadData = useCallback(async () => {
     const txs = await getTransactionsForMonth(month);
+    const bConfig = await getMonthlyBudgetConfig(month);
     setTransactions(txs);
     setPeople(await getAllPeople());
+    setBudgetConfig(bConfig);
   }, [month]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const handleOpenBudgetModal = () => {
+    if (budgetConfig) {
+      setTempTotalBudget(String(budgetConfig.totalBudget));
+      const strMap: Record<string, string> = {};
+      for (const [cat, val] of Object.entries(budgetConfig.categoryBudgets)) {
+        strMap[cat] = String(val);
+      }
+      setTempCategoryBudgets(strMap);
+    }
+    setShowBudgetModal(true);
+  };
+
+  const handleSaveBudgetConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const tot = parseFloat(tempTotalBudget);
+    if (isNaN(tot) || tot <= 0) return;
+
+    const catBudgets: Record<string, number> = {};
+    for (const [cat, strVal] of Object.entries(tempCategoryBudgets)) {
+      const num = parseFloat(strVal);
+      if (!isNaN(num) && num >= 0) {
+        catBudgets[cat] = num;
+      }
+    }
+
+    const updated: MonthlyBudgetConfig = {
+      month,
+      totalBudget: tot,
+      categoryBudgets: catBudgets,
+    };
+
+    await saveMonthlyBudgetConfig(updated);
+    setBudgetConfig(updated);
+    setShowBudgetModal(false);
+    syncNow();
+  };
+
+  const handleAnalyzeSpendingWithAI = async () => {
+    const localGeminiKey = localStorage.getItem('lifepulse-gemini-api-key') || '';
+    if (!localGeminiKey && !supabase) {
+      setAiError('Please configure your Gemini API Key in Settings to enable AI spending analysis.');
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError('');
+
+    const expenses = transactions.filter(t => t.type === 'expense');
+    const income = transactions.filter(t => t.type === 'income');
+    const totalExp = expenses.reduce((s, t) => s + t.amount, 0);
+    const totalInc = income.reduce((s, t) => s + t.amount, 0);
+
+    const catMap: Record<string, number> = {};
+    for (const t of expenses) {
+      catMap[t.category] = (catMap[t.category] || 0) + t.amount;
+    }
+
+    try {
+      if (localGeminiKey) {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${localGeminiKey}`;
+        const promptText = `Analyze this monthly expense summary for ${month}:
+- Total Budget: ₹${budgetConfig?.totalBudget || 15000}
+- Total Income: ₹${totalInc}
+- Total Expenses: ₹${totalExp}
+- Category Breakdown: ${JSON.stringify(catMap)}
+
+Provide personalized financial advice. Output JSON ONLY matching this schema:
+{
+  "summary": "1-2 sentence overall assessment of monthly spending habits.",
+  "tips": [
+    "Tip 1: specific actionable advice",
+    "Tip 2: specific actionable advice",
+    "Tip 3: specific actionable advice"
+  ]
+}`;
+
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: { responseMimeType: 'application/json' }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Gemini API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const parsed = JSON.parse(rawText);
+        setAiInsight({
+          summary: parsed.summary || 'Spending analysis complete.',
+          tips: parsed.tips || ['Keep tracking daily expenses to maintain budget control.'],
+          analyzedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+      } else {
+        setAiInsight({
+          summary: `You have spent ₹${totalExp} out of your ₹${budgetConfig?.totalBudget || 15000} budget this month.`,
+          tips: [
+            'Monitor top category spending regularly.',
+            'Aim to save at least 20% of monthly income.',
+            'Set up category limits to avoid overspending.'
+          ],
+          analyzedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      }
+    } catch (err: any) {
+      setAiError(err.message || 'Failed to analyze spending.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setAmount(''); setTxType('expense'); setCategory('Food');
@@ -330,17 +459,134 @@ export default function Finance() {
 
         {/* Category breakdown */}
         {Object.keys(byCategory).length > 0 && (
-          <div style={{ marginTop: '18px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '14px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '8px' }}>Breakdown</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ marginTop: '18px', borderTop: '1px solid var(--color-border)', paddingTop: '14px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '8px' }}>Category Breakdown</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {Object.entries(byCategory)
                 .sort((a, b) => b[1] - a[1])
-                .map(([cat, amt]) => (
-                  <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
-                    <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>{cat}</span>
-                    <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>₹{amt.toLocaleString()}</span>
-                  </div>
-                ))}
+                .map(([cat, amt]) => {
+                  const limit = budgetConfig?.categoryBudgets[cat] || 3000;
+                  const catPercent = Math.min(Math.round((amt / limit) * 100), 100);
+                  const catColor = catPercent < 70 ? 'var(--color-habit)' : catPercent <= 90 ? 'var(--color-journal)' : 'var(--color-people)';
+                  return (
+                    <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+                        <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>{cat}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                          ₹{amt.toLocaleString()} <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>/ ₹{limit.toLocaleString()}</span>
+                        </span>
+                      </div>
+                      <div style={{ height: '4px', borderRadius: '10px', backgroundColor: 'var(--color-bg-secondary)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${catPercent}%`, backgroundColor: catColor, borderRadius: '10px', transition: 'width 0.3s ease' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Monthly Budget Dashboard Card */}
+      {(() => {
+        const totBudget = budgetConfig?.totalBudget || 15000;
+        const spentPercent = Math.min(Math.round((expense / totBudget) * 100), 100);
+        const statusColor = spentPercent < 70 ? 'var(--color-habit)' : spentPercent <= 90 ? 'var(--color-journal)' : 'var(--color-people)';
+        const todayDate = new Date();
+        const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+        const daysLeft = Math.max(1, daysInMonth - todayDate.getDate());
+        const remainingBudget = Math.max(0, totBudget - expense);
+        const dailySafeAllowance = Math.round(remainingBudget / daysLeft);
+
+        return (
+          <div className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Monthly Budget & Allowance
+                </h2>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--color-text-primary)', marginTop: '2px' }}>
+                  ₹{expense.toLocaleString()} <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>/ ₹{totBudget.toLocaleString()}</span>
+                </div>
+              </div>
+              <button
+                onClick={handleOpenBudgetModal}
+                style={{
+                  background: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '12px',
+                  fontWeight: 650,
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                }}
+              >
+                ⚙ Set Budget
+              </button>
+            </div>
+
+            {/* Budget Bar */}
+            <div>
+              <div style={{ height: '8px', borderRadius: '99px', backgroundColor: 'var(--color-bg-secondary)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${spentPercent}%`, backgroundColor: statusColor, borderRadius: '99px', transition: 'width 0.4s ease' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+                <span>{spentPercent}% spent</span>
+                <span>Safe Daily Allowance: <strong style={{ color: 'var(--color-text-primary)' }}>₹{dailySafeAllowance}/day</strong> ({daysLeft}d left)</span>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Gemini AI Spending Advisor */}
+      <div className="glass-card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-journal)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              ✨ Gemini AI Spending Insights
+            </h2>
+            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+              Private AI analysis of your monthly expense patterns
+            </div>
+          </div>
+          <button
+            onClick={handleAnalyzeSpendingWithAI}
+            disabled={aiLoading}
+            className="btn-premium btn-premium-journal"
+            style={{
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              minHeight: '34px',
+              borderRadius: '10px',
+            }}
+          >
+            {aiLoading ? 'Analyzing...' : 'Analyze Now'}
+          </button>
+        </div>
+
+        {aiError && (
+          <div style={{ fontSize: '12px', color: 'var(--color-people)', background: 'rgba(189, 83, 102, 0.1)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+            ⚠️ {aiError}
+          </div>
+        )}
+
+        {aiInsight && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px', borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
+            <div style={{ fontSize: '13px', color: 'var(--color-text-primary)', fontWeight: 600, lineHeight: 1.4 }}>
+              💡 {aiInsight.summary}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {aiInsight.tips.map((tip, idx) => (
+                <div key={idx} style={{ fontSize: '12px', color: 'var(--color-text-secondary)', background: 'var(--color-bg-secondary)', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+                  • {tip}
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', textAlign: 'right' }}>
+              Analyzed at {aiInsight.analyzedAt}
             </div>
           </div>
         )}
@@ -726,6 +972,95 @@ export default function Finance() {
           </div>
         ))}
       </div>
+
+      {/* Budget Config Modal */}
+      {showBudgetModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px',
+        }}>
+          <div className="glass-card animate-scale-up" style={{
+            maxWidth: '400px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0 }}>Configure Monthly Budget</h2>
+              <button onClick={() => setShowBudgetModal(false)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', fontSize: '20px', cursor: 'pointer' }}>×</button>
+            </div>
+
+            <form onSubmit={handleSaveBudgetConfig} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Total Monthly Budget (₹)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={tempTotalBudget}
+                  onChange={(e) => setTempTotalBudget(e.target.value)}
+                  className="glass-input"
+                  style={{ marginTop: '6px' }}
+                  required
+                />
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                  Category Target Limits (₹)
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {DEFAULT_CATEGORIES.filter(c => c !== 'Income').map(cat => (
+                    <div key={cat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--color-text-primary)', fontWeight: 500 }}>{cat}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={tempCategoryBudgets[cat] || ''}
+                        onChange={(e) => setTempCategoryBudgets({ ...tempCategoryBudgets, [cat]: e.target.value })}
+                        className="glass-input"
+                        placeholder="Limit (e.g. 5000)"
+                        style={{ width: '130px', padding: '8px 12px', fontSize: '13px' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowBudgetModal(false)}
+                  className="btn-premium btn-premium-secondary"
+                  style={{ flex: 1, minHeight: '40px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-premium btn-premium-finance"
+                  style={{ flex: 1, minHeight: '40px' }}
+                >
+                  Save Budget
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

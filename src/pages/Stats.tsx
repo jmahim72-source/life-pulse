@@ -6,26 +6,34 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getLastNDays } from '../lib/dates';
-import { getActiveHabits, getHabitLogsForRange, getAllTransactions, getSplitSharesForTransaction } from '../db';
+import { getActiveHabits, getHabitLogsForRange, getAllTransactions, getSplitSharesForTransaction, getHabitStreak, getMilestoneTier } from '../db';
+import type { MilestoneTier } from '../types';
+import { MILESTONE_TIERS } from '../types';
 
 type Period = 7 | 30 | 90;
 
 export default function Stats() {
   const [period, setPeriod] = useState<Period>(7);
   const [habitData, setHabitData] = useState<{ name: string; data: { date: string; value: number; target: number }[] }[]>([]);
+  const [milestonesData, setMilestonesData] = useState<{ name: string; streak: number; milestone: MilestoneTier | null }[]>([]);
   const [financeData, setFinanceData] = useState<{ month: string; income: number; expense: number; netExpense: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setLoading(true);
 
-    // Habit data
+    // Habit data & Milestones
     const habits = await getActiveHabits();
     const dates = getLastNDays(period);
     const hData = [];
+    const mData = [];
 
     for (const habit of habits) {
       const logs = await getHabitLogsForRange(habit.id, dates);
+      const streak = await getHabitStreak(habit);
+      const milestone = getMilestoneTier(streak);
+      mData.push({ name: habit.name, streak, milestone });
+
       const logMap = new Map(logs.map(l => [l.date, l.value]));
       const data = dates.map(d => ({
         date: d.slice(5), // 'MM-DD'
@@ -35,6 +43,7 @@ export default function Stats() {
       hData.push({ name: habit.name, data });
     }
     setHabitData(hData);
+    setMilestonesData(mData);
 
     // Finance data — last 6 months
     const allTx = await getAllTransactions();
@@ -105,6 +114,56 @@ export default function Stats() {
             {p} days
           </button>
         ))}
+      </div>
+
+      {/* Achievements & Milestones Board */}
+      <div className="glass-card" style={{ padding: '20px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: 750, color: 'var(--color-stats)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          🏆 Achievements & Milestone Badges
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {MILESTONE_TIERS.map(tier => {
+            const unlockedHabits = milestonesData.filter(m => m.streak >= tier.minDays);
+            const isUnlocked = unlockedHabits.length > 0;
+            return (
+              <div
+                key={tier.id}
+                style={{
+                  background: isUnlocked ? tier.bgGlow : 'var(--color-bg-secondary)',
+                  border: `1px solid ${isUnlocked ? tier.color + '66' : 'var(--color-border)'}`,
+                  borderRadius: '14px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  opacity: isUnlocked ? 1 : 0.5,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>{tier.icon}</span>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: isUnlocked ? tier.color : 'var(--color-text-secondary)' }}>
+                      {tier.name}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                      {tier.minDays}+ days streak
+                    </div>
+                  </div>
+                </div>
+                {isUnlocked ? (
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-primary)', marginTop: '4px' }}>
+                    Unlocked by: {unlockedHabits.map(h => h.name).join(', ')}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                    Locked
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Habit trends */}

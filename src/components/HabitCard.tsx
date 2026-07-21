@@ -6,6 +6,7 @@
 
 import React, { useState } from 'react';
 import type { Habit, HabitLog } from '../types';
+import { getMilestoneTier } from '../db';
 
 interface Props {
   habit: Habit;
@@ -132,21 +133,25 @@ export default function HabitCard({ habit, log, streak, onToggle, onIncrement, o
           }}>
             {habit.name}
           </span>
-          {streak !== undefined && streak > 0 && (
-            <span style={{
-              fontSize: '11px',
-              fontWeight: 750,
-              color: '#f59e0b',
-              background: 'rgba(245, 158, 11, 0.1)',
-              padding: '2px 8px',
-              borderRadius: '99px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '2px',
-            }}>
-              🔥 {streak} {streak === 1 ? 'day' : 'days'}
-            </span>
-          )}
+          {streak !== undefined && streak > 0 && (() => {
+            const milestone = getMilestoneTier(streak);
+            return (
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 750,
+                color: milestone ? milestone.color : '#f59e0b',
+                background: milestone ? milestone.bgGlow : 'rgba(245, 158, 11, 0.1)',
+                border: milestone ? `1px solid ${milestone.color}44` : 'none',
+                padding: '2px 8px',
+                borderRadius: '99px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+              }}>
+                🔥 {streak}d {milestone ? `· ${milestone.icon} ${milestone.name}` : ''}
+              </span>
+            );
+          })()}
         </div>
         {!isBoolean && habit.target && (
           <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginTop: '4px', fontWeight: 500 }}>

@@ -99,3 +99,42 @@ export const DEFAULT_CATEGORIES = [
   'Income',
   'Other',
 ] as const;
+
+// ─── Milestone Tiers & Gamification ───────────────────────────────
+
+export interface MilestoneTier {
+  id: 'bronze' | 'silver' | 'gold' | 'diamond' | 'legendary';
+  name: string;
+  minDays: number;
+  icon: string;
+  color: string;
+  bgGlow: string;
+}
+
+export const MILESTONE_TIERS: MilestoneTier[] = [
+  { id: 'legendary', name: 'Legendary Master', minDays: 100, icon: '👑', color: '#f59e0b', bgGlow: 'rgba(245, 158, 11, 0.25)' },
+  { id: 'diamond', name: 'Diamond Titan', minDays: 30, icon: '💎', color: '#06b6d4', bgGlow: 'rgba(6, 182, 212, 0.25)' },
+  { id: 'gold', name: 'Gold Vanguard', minDays: 14, icon: '🥇', color: '#eab308', bgGlow: 'rgba(234, 179, 8, 0.25)' },
+  { id: 'silver', name: 'Silver Flame', minDays: 7, icon: '🥈', color: '#94a3b8', bgGlow: 'rgba(148, 163, 184, 0.25)' },
+  { id: 'bronze', name: 'Bronze Spark', minDays: 3, icon: '🥉', color: '#d97706', bgGlow: 'rgba(217, 119, 6, 0.25)' },
+];
+
+// ─── Budget & Financial Insights ───────────────────────────────────
+
+export interface CategoryBudget {
+  category: string;
+  limit: number;
+}
+
+export interface MonthlyBudgetConfig {
+  month: string;              // YYYY-MM
+  totalBudget: number;
+  categoryBudgets: Record<string, number>;
+}
+
+export interface AISpendingInsight {
+  summary: string;
+  tips: string[];
+  analyzedAt: string;
+}
+
